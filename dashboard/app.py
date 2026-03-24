@@ -132,9 +132,9 @@ st.session_state.role_filter = role_filter
 # ---------------------------------------------------------------------------
 
 weekly_overview = st.Page(
-    "dashboard/pages/weekly_overview.py", title="Weekly Overview", default=True,
+    "pages/weekly_overview.py", title="Weekly Overview", default=True,
 )
-player_timeline = st.Page("dashboard/pages/player_timeline.py", title="Player Timeline")
+player_timeline = st.Page("pages/player_timeline.py", title="Player Timeline")
 
 pg = st.navigation([weekly_overview, player_timeline])
 pg.run()

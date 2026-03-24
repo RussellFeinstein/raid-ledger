@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "raid-ledger"
-version = "0.6.0"
+version = "0.6.1"
 description = "Weekly M+ accountability system for WoW CE progression guilds"
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = "MIT"
 dependencies = [
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
@@ -32,6 +32,9 @@ dashboard = [
     "plotly>=5.18",
     "pandas>=2.0",
 ]
+
+[tool.setuptools.packages.find]
+include = ["raid_ledger*", "dashboard*"]
 
 [tool.ruff]
 target-version = "py311"
