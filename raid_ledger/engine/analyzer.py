@@ -14,6 +14,7 @@ from sqlalchemy import case, select
 from sqlalchemy.orm import Session
 
 from raid_ledger.db.schema import PlayerRow, WeeklySnapshotRow
+from raid_ledger.models.player import PlayerStatus
 from raid_ledger.models.snapshot import SnapshotStatus
 
 # ---------------------------------------------------------------------------
@@ -64,6 +65,9 @@ class PlayerStreak:
     streak_length: int
 
 
+_ACTIVE_STATUSES = [PlayerStatus.CORE, PlayerStatus.TRIAL]
+
+
 # ---------------------------------------------------------------------------
 # Analyzer
 # ---------------------------------------------------------------------------
@@ -103,8 +107,8 @@ class FailureAnalyzer:
             .where(WeeklySnapshotRow.week_of == week_of)
             .order_by(
                 case(
-                    (WeeklySnapshotRow.status == "flag", 0),
-                    (WeeklySnapshotRow.status == "fail", 1),
+                    (WeeklySnapshotRow.status == SnapshotStatus.FLAG, 0),
+                    (WeeklySnapshotRow.status == SnapshotStatus.FAIL, 1),
                     else_=2,
                 ),
                 PlayerRow.name,
@@ -205,7 +209,7 @@ class FailureAnalyzer:
         active_players = (
             self._session.execute(
                 select(PlayerRow)
-                .where(PlayerRow.status.in_(["core", "trial"]))
+                .where(PlayerRow.status.in_(_ACTIVE_STATUSES))
                 .order_by(PlayerRow.name)
             )
             .scalars()
@@ -229,7 +233,7 @@ class FailureAnalyzer:
         active_players = (
             self._session.execute(
                 select(PlayerRow)
-                .where(PlayerRow.status.in_(["core", "trial"]))
+                .where(PlayerRow.status.in_(_ACTIVE_STATUSES))
                 .order_by(PlayerRow.name)
             )
             .scalars()
@@ -283,7 +287,9 @@ class FailureAnalyzer:
             select(WeeklySnapshotRow.reasons)
             .where(
                 WeeklySnapshotRow.week_of == week_of,
-                WeeklySnapshotRow.status.in_(["fail", "flag"]),
+                WeeklySnapshotRow.status.in_([
+                    SnapshotStatus.FAIL, SnapshotStatus.FLAG,
+                ]),
             )
         )
         rows = self._session.execute(stmt).scalars().all()
@@ -308,7 +314,7 @@ class FailureAnalyzer:
         trial_players = (
             self._session.execute(
                 select(PlayerRow)
-                .where(PlayerRow.status == "trial")
+                .where(PlayerRow.status == PlayerStatus.TRIAL)
                 .order_by(PlayerRow.name)
             )
             .scalars()

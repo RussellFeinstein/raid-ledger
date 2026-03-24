@@ -1,6 +1,6 @@
 """Tests for the failure analyzer — seeded multi-week data with known patterns.
 
-Seed layout (6 players x 8 weeks):
+Seed layout (7 players x 8 weeks):
 
     Player      Status    W1   W2   W3   W4   W5   W6   W7   W8
     ──────────  ────────  ──── ──── ──── ──── ──── ──── ──── ────
@@ -8,10 +8,11 @@ Seed layout (6 players x 8 weeks):
     AllFail     core      F    F    F    F    F    F    F    F
     Mixed       core      P    F    P    F    P    F    P    F
     Improver    core      F    F    F    P    P    P    P    P
+    Flagged     core      P    P    ?    P    F    ?    P    P    (? = flag)
     Newbie      trial     -    -    -    -    -    P    F    P    (joined W6)
     Benched     inactive  P    P    P    P    P    -    -    -    (went inactive after W5)
 
-P = pass, F = fail, - = no snapshot
+P = pass, F = fail, ? = flag, - = no snapshot
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ from raid_ledger.db.schema import PlayerRow, WeeklySnapshotRow
 from raid_ledger.engine.analyzer import (
     FailureAnalyzer,
 )
-from raid_ledger.models.snapshot import FailureReason
+from raid_ledger.models.snapshot import FailureReason, FlagReason
 
 # 8 Tuesdays
 WEEKS = [date(2026, 3, 3) + timedelta(weeks=i) for i in range(8)]
@@ -35,12 +36,14 @@ W1, W2, W3, W4, W5, W6, W7, W8 = WEEKS
 
 @pytest.fixture()
 def seeded_session(db_session):
-    """Seed 6 players and 8 weeks of snapshots with known patterns."""
+    """Seed 7 players and 8 weeks of snapshots with known patterns."""
     players = [
         PlayerRow(name="AllPass", realm="tichondrius", region="us", class_name="Mage",
                   role="dps", status="core", joined_date=date(2026, 3, 1)),
         PlayerRow(name="AllFail", realm="tichondrius", region="us", class_name="Warrior",
                   role="tank", status="core", joined_date=date(2026, 3, 1)),
+        PlayerRow(name="Flagged", realm="tichondrius", region="us", class_name="Shaman",
+                  role="dps", status="core", joined_date=date(2026, 3, 1)),
         PlayerRow(name="Mixed", realm="tichondrius", region="us", class_name="Priest",
                   role="healer", status="core", joined_date=date(2026, 3, 1)),
         PlayerRow(name="Improver", realm="tichondrius", region="us", class_name="Rogue",
@@ -91,6 +94,21 @@ def seeded_session(db_session):
     for i, w in enumerate(WEEKS):
         snapshots.append(_snap("Improver", w, "fail" if i < 3 else "pass"))
 
+    # Flagged: P P ? P F ? P P (? = flag at W3 and W6)
+    for i, w in enumerate(WEEKS):
+        if i in (2, 5):  # W3, W6
+            snapshots.append(WeeklySnapshotRow(
+                player_id=pid["Flagged"], week_of=w, status="flag",
+                mplus_runs_total=0, mplus_runs_at_level=0,
+                item_level=None, vault_slots_earned=0,
+                reasons=json.dumps([FlagReason.NO_DATA]),
+                data_source="raiderio",
+            ))
+        elif i == 4:  # W5 = fail
+            snapshots.append(_snap("Flagged", w, "fail"))
+        else:
+            snapshots.append(_snap("Flagged", w, "pass"))
+
     # Newbie (trial): joined W6, has data for W6 W7 W8 only (P F P)
     snapshots.append(_snap("Newbie", W6, "pass"))
     snapshots.append(_snap("Newbie", W7, "fail"))
@@ -116,9 +134,9 @@ class TestWeeklySummary:
         analyzer = FailureAnalyzer(seeded_session)
         summary = analyzer.get_weekly_summary(W8)
         names = [s.name for s in summary]
-        # W8 has snapshots for: AllPass, AllFail, Mixed, Improver, Newbie
+        # W8 has snapshots for: AllPass, AllFail, Flagged, Mixed, Improver, Newbie
         # Benched has no W8 snapshot
-        assert len(summary) == 5
+        assert len(summary) == 6
         assert "Benched" not in names
 
     def test_ordering_flags_first_then_fails(self, seeded_session):
@@ -379,6 +397,92 @@ class TestTrialFlags:
         names = [f.name for f in flags]
         assert "AllFail" not in names  # core, not trial
         assert "Mixed" not in names
+
+
+# ---------------------------------------------------------------------------
+# Edge cases
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# FLAG-specific tests
+# ---------------------------------------------------------------------------
+
+
+class TestFlagBehavior:
+    def test_weekly_summary_flags_sorted_first(self, seeded_session):
+        """Flags appear before fails, which appear before passes."""
+        analyzer = FailureAnalyzer(seeded_session)
+        # W3 has a flag (Flagged player)
+        summary = analyzer.get_weekly_summary(W3)
+        statuses = [s.snapshot_status for s in summary]
+        flag_idx = [i for i, s in enumerate(statuses) if s == "flag"]
+        fail_idx = [i for i, s in enumerate(statuses) if s == "fail"]
+        pass_idx = [i for i, s in enumerate(statuses) if s == "pass"]
+        if flag_idx and fail_idx:
+            assert max(flag_idx) < min(fail_idx)
+        if fail_idx and pass_idx:
+            assert max(fail_idx) < min(pass_idx)
+
+    def test_failure_rate_excludes_flags(self, seeded_session):
+        """Flags do NOT count as failures in the rate calculation."""
+        analyzer = FailureAnalyzer(seeded_session)
+        pid = seeded_session.execute(
+            select(PlayerRow.player_id).where(PlayerRow.name == "Flagged")
+        ).scalar()
+        # Flagged: P P ? P F ? P P -> last 8: 1 fail, 2 flags, 5 pass
+        rate = analyzer.get_failure_rate(pid, lookback_weeks=8)
+        assert rate.failures == 1  # Only the fail counts, not the flags
+        assert rate.total_weeks == 8  # All 8 weeks have snapshots
+
+    def test_streak_broken_by_flag(self, seeded_session):
+        """A flag breaks a pass/fail streak."""
+        analyzer = FailureAnalyzer(seeded_session)
+        streaks = analyzer.get_current_streaks()
+        streak_map = {s.name: s for s in streaks}
+        # Flagged: W1=P W2=P W3=? W4=P W5=F W6=? W7=P W8=P
+        # Most recent first: P P ? F P ? P P
+        # Current streak = 2 pass (W8, W7), broken by flag at W6
+        assert streak_map["Flagged"].streak_type == "pass"
+        assert streak_map["Flagged"].streak_length == 2
+
+    def test_failure_breakdown_includes_flag_reasons(self, seeded_session):
+        """Flag reasons (like NO_DATA) appear in breakdown."""
+        analyzer = FailureAnalyzer(seeded_session)
+        breakdown = analyzer.get_failure_breakdown(W3)
+        # W3: Flagged=flag(no_data), AllFail+Improver=fail(insufficient_keys)
+        assert breakdown.get("no_data", 0) == 1
+        assert breakdown.get("insufficient_keys", 0) == 2
+
+    def test_chronic_excludes_flagged_as_failures(self, seeded_session):
+        """Player with flags but only 1 fail should not be chronic at threshold=3."""
+        analyzer = FailureAnalyzer(seeded_session)
+        chronic = analyzer.get_chronic_underperformers(fail_threshold=3, lookback_weeks=8)
+        names = [c.name for c in chronic]
+        assert "Flagged" not in names  # Only 1 real failure
+
+
+class TestMultiReasonBreakdown:
+    def test_multiple_reasons_per_snapshot(self, seeded_session):
+        """A snapshot with multiple reasons counts each reason separately."""
+        # Add a snapshot with both INSUFFICIENT_KEYS and LOW_ILVL
+        pid = seeded_session.execute(
+            select(PlayerRow.player_id).where(PlayerRow.name == "AllPass")
+        ).scalar()
+        # Override AllPass W8 with a multi-reason fail for this test
+        from raid_ledger.db.schema import WeeklySnapshotRow as Row
+        row = seeded_session.execute(
+            select(Row).where(Row.player_id == pid, Row.week_of == W8)
+        ).scalar_one()
+        row.status = "fail"
+        row.reasons = json.dumps(["insufficient_keys", "low_ilvl"])
+        seeded_session.flush()
+
+        analyzer = FailureAnalyzer(seeded_session)
+        breakdown = analyzer.get_failure_breakdown(W8)
+        # W8 now: AllPass=fail(keys+ilvl), AllFail=fail(keys), Mixed=fail(keys)
+        assert breakdown.get("insufficient_keys", 0) == 3
+        assert breakdown.get("low_ilvl", 0) == 1
 
 
 # ---------------------------------------------------------------------------
