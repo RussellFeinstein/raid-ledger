@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] — 2026-03-23
+
+### Fixed
+
+- 429 rate-limit exhaustion now raises `RateLimitError` instead of misleading `TimeoutException`
+- README project structure referenced nonexistent `cli.py`
+
+### Added
+
+- `RateLimitError` exception for exhausted rate-limit retries
+- Warning log on unknown role values during guild roster import
+- Test for 429 exhaustion in API client
+- Test for 404 (CharacterNotFoundError) flagging in collector flow
+
 ## [0.4.0] — 2026-03-23
 
 **Milestone M3: Rules Engine + Collector**

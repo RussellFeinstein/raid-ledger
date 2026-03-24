@@ -15,6 +15,7 @@ from raid_ledger.api.raiderio import (
     GuildNotFoundError,
     ParseError,
     RaiderioClient,
+    RateLimitError,
 )
 from raid_ledger.config import CollectionConfig, RaiderioConfig
 
@@ -140,6 +141,19 @@ class TestFetchCharacter:
 
         assert result.name == "Testchar"
         assert route.call_count == 2
+
+    @respx.mock
+    @pytest.mark.anyio
+    async def test_429_retries_exhausted(self):
+        """All retries get 429 — raises RateLimitError, not TimeoutException."""
+        respx.get(f"{BASE_URL}/characters/profile").mock(
+            return_value=httpx.Response(429, text="Rate limited")
+        )
+
+        async with httpx.AsyncClient() as http:
+            client = _make_client(http)
+            with pytest.raises(RateLimitError):
+                await client.fetch_character("us", "tichondrius", "Testchar")
 
     @respx.mock
     @pytest.mark.anyio

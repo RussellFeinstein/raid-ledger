@@ -285,6 +285,40 @@ class TestCollectorErrors:
 class TestCollectorEdgeCases:
     @respx.mock
     @pytest.mark.anyio
+    async def test_character_not_found_flagged(self, db_session):
+        """404 for a player -> flagged as NO_DATA, not counted as api_error."""
+        _add_players(db_session, ["P1", "P2"])
+        _add_benchmark(db_session)
+        fixture = _load_fixture("raiderio_character.json")
+
+        route = respx.get("https://raider.io/api/v1/characters/profile")
+        route.side_effect = [
+            httpx.Response(404, json={"error": "Not Found"}),
+            httpx.Response(200, json=fixture),
+        ]
+
+        config = _config()
+        async with httpx.AsyncClient() as http:
+            client = RaiderioClient(
+                raiderio_config=config.raiderio,
+                collection_config=config.collection,
+                http_client=http,
+            )
+            collector = WeeklyCollector(db_session, client, config)
+            result = await collector.collect(WEEK)
+
+        assert result.players_collected == 2
+        assert result.api_errors == 0
+
+        snap_repo = SnapshotRepo(db_session)
+        snaps = snap_repo.get_by_week(WEEK)
+        assert len(snaps) == 2
+        statuses = [s.status for s in snaps]
+        assert SnapshotStatus.FLAG in statuses
+        assert SnapshotStatus.PASS in statuses
+
+    @respx.mock
+    @pytest.mark.anyio
     async def test_player_zero_runs(self, db_session):
         """Player with 0 M+ runs -> fail with INSUFFICIENT_KEYS."""
         _add_players(db_session, ["P1"])

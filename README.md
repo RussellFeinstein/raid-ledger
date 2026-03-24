@@ -65,7 +65,8 @@ raid_ledger/
 ├── engine/
 │   ├── rules.py          # 3-state evaluation (pass/fail/flag), OR logic
 │   └── collector.py      # Weekly collection orchestrator
-└── cli.py                # Typer CLI (M7)
+scripts/
+└── collect_weekly.py     # Entry point for cron + manual collection
 ```
 
 ## Database

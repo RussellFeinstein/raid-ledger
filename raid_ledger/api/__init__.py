@@ -7,6 +7,7 @@ from raid_ledger.api.raiderio import (
     GuildNotFoundError,
     ParseError,
     RaiderioClient,
+    RateLimitError,
 )
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "GuildMember",
     "GuildNotFoundError",
     "ParseError",
+    "RateLimitError",
     "RaiderioClient",
 ]

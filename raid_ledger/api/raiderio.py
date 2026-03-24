@@ -44,6 +44,10 @@ class ParseError(Exception):
     """Response body could not be parsed as valid JSON."""
 
 
+class RateLimitError(Exception):
+    """All retries exhausted due to 429 rate limiting."""
+
+
 # ---------------------------------------------------------------------------
 # Data classes returned by the client
 # ---------------------------------------------------------------------------
@@ -129,11 +133,13 @@ class RaiderioClient:
 
         try:
             last_exc: Exception | None = None
+            rate_limited = False
             for attempt in range(self._col.max_retries):
                 try:
                     response = await client.get(url, params=params)
 
                     if response.status_code == 429:
+                        rate_limited = True
                         wait = 2 ** attempt
                         logger.warning("Rate limited (429), retrying in %ds", wait)
                         await asyncio.sleep(wait)
@@ -161,7 +167,13 @@ class RaiderioClient:
 
             if last_exc is not None:
                 raise last_exc
-            raise httpx.TimeoutException(f"All {self._col.max_retries} retries exhausted")
+            if rate_limited:
+                raise RateLimitError(
+                    f"Rate limited (429) on all {self._col.max_retries} attempts for {url}"
+                )
+            raise httpx.TimeoutException(
+                f"All {self._col.max_retries} retries exhausted for {url}"
+            )
         finally:
             if owns_client:
                 await client.aclose()
@@ -262,6 +274,10 @@ class RaiderioClient:
             elif role_raw in ("tank", "dps"):
                 role = role_raw
             else:
+                logger.warning(
+                    "Unknown role '%s' for %s, defaulting to dps",
+                    role_raw, char.get("name"),
+                )
                 role = "dps"
 
             members.append(GuildMember(
