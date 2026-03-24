@@ -62,7 +62,9 @@ raid_ledger/
 │   └── repositories.py   # CRUD repos returning Pydantic models
 ├── api/
 │   └── raiderio.py      # Raider.io HTTP client (character + guild endpoints)
-├── engine/               # Rules engine + collector + analyzer (M3-M4)
+├── engine/
+│   ├── rules.py          # 3-state evaluation (pass/fail/flag), OR logic
+│   └── collector.py      # Weekly collection orchestrator
 └── cli.py                # Typer CLI (M7)
 ```
 
@@ -88,6 +90,34 @@ The client fetches data from two Raider.io endpoints (free, no auth required, 20
 - Officers select active raiders from the full member list
 
 Collection runs Tuesday evening (3 hours after US reset) to ensure data is finalized. The client uses exponential backoff on 429 rate limits and retries on timeouts.
+
+## Collection & Rules Engine
+
+### How Collection Works
+
+1. Loads the active roster (core + trial players)
+2. Loads the benchmark for this week (copies the most recent one if none is set)
+3. For each player: fetches data from Raider.io, evaluates against the benchmark, upserts a snapshot
+4. Logs collection run metadata (status, counts, errors)
+
+Collection is safe to re-run — `UNIQUE(player_id, week_of)` upserts mean the latest data wins.
+
+### How the Rules Engine Evaluates
+
+OR-logic: failing ANY active check = failed week. All thresholds come from the weekly benchmark — nothing is hardcoded.
+
+- **Pass**: Met all requirements
+- **Fail**: `INSUFFICIENT_KEYS` (runs at level < minimum) and/or `LOW_ILVL` (ilvl < minimum, only checked when set)
+- **Flag**: `NO_DATA` (API returned nothing — needs officer review)
+
+Vault slots are derived from M+ count: 1/4/8 runs = 1/2/3 slots.
+
+### Running Collection Manually
+
+```bash
+python scripts/collect_weekly.py                    # current week
+python scripts/collect_weekly.py --week 2026-03-17  # specific week
+```
 
 ## Configuration
 

@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-03-23
+
+**Milestone M3: Rules Engine + Collector**
+
+### Added
+
+- Rules engine (`raid_ledger/engine/rules.py`): OR-logic pass/fail/flag evaluation against weekly benchmarks
+- `evaluate()` function: checks M+ runs at level and ilvl (when set), returns `EvaluationResult(status, reasons)`
+- `derive_vault_slots()`: 1/4/8 runs = 1/2/3 Great Vault slots
+- Weekly collector (`raid_ledger/engine/collector.py`): orchestrates fetch-evaluate-upsert for all active players
+- Benchmark copy-forward: automatically copies the most recent benchmark when none exists for the current week
+- `NoBenchmarkError`: clear failure when no benchmark has ever been set
+- `scripts/collect_weekly.py`: standalone entry point for GitHub Actions cron and manual collection
+- 36 new tests: exhaustive rules scenarios (pass/fail/flag/edge cases), collector integration with mocked API, vault derivation, script smoke test
+
 ## [0.3.0] — 2026-03-23
 
 **Milestone M2: Raider.io Client**
