@@ -1,12 +1,12 @@
 """Weekly collection orchestrator.
 
-Loads the active roster, fetches each player from Raider.io, evaluates
-against the weekly benchmark, upserts snapshots, and logs the collection run.
+Fetches all players' M+ data from wowaudit in a single batch call,
+evaluates against the weekly benchmark, upserts snapshots, and logs
+the collection run.
 """
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from dataclasses import dataclass, field
@@ -14,10 +14,9 @@ from datetime import UTC, date, datetime
 
 from sqlalchemy.orm import Session
 
-from raid_ledger.api.raiderio import (
-    CharacterData,
-    CharacterNotFoundError,
-    RaiderioClient,
+from raid_ledger.api.wowaudit import (
+    WowauditCharacter,
+    WowauditClient,
 )
 from raid_ledger.config import AppConfig
 from raid_ledger.db.repositories import (
@@ -55,7 +54,7 @@ class WeeklyCollector:
     def __init__(
         self,
         session: Session,
-        client: RaiderioClient,
+        client: WowauditClient,
         config: AppConfig,
     ) -> None:
         self._session = session
@@ -68,8 +67,9 @@ class WeeklyCollector:
         Steps:
             1. Load active roster (core + trial)
             2. Load or copy-forward the benchmark for this week
-            3. For each player: fetch, evaluate, upsert snapshot
-            4. Log collection_run metadata
+            3. Batch-fetch all characters from wowaudit
+            4. Match characters to roster by name+realm, evaluate, upsert
+            5. Log collection_run metadata
 
         Raises:
             NoBenchmarkError: No benchmark has ever been set.
@@ -124,38 +124,57 @@ class WeeklyCollector:
                 week_of, most_recent.week_of,
             )
 
-        # Collect each player
-        delay = self._config.collection.request_delay_seconds
+        # Batch fetch from wowaudit
+        try:
+            period, char_data = await self._client.fetch_historical_data()
+            logger.info("Fetched period %d with %d characters", period, len(char_data))
+        except (KeyboardInterrupt, SystemExit):
+            raise
+        except Exception as exc:
+            logger.error("Batch fetch failed: %s", exc)
+            result.api_errors = len(roster)
+            result.status = "failed"
+            result.errors.append(f"Batch fetch failed: {exc}")
+            # Flag all players as NO_DATA
+            for player in roster:
+                self._upsert_flag_snapshot(snapshot_repo, player, week_of, str(exc))
+            self._session.commit()
+            run_repo.update(
+                run_id,
+                status="failed",
+                players_collected=0,
+                api_errors=len(roster),
+                error_log=str(exc),
+                completed=True,
+            )
+            self._session.commit()
+            return result
+
+        # Build name+realm lookup
+        char_lookup: dict[tuple[str, str], WowauditCharacter] = {}
+        for char in char_data.values():
+            key = (char.name.lower(), char.realm.lower())
+            char_lookup[key] = char
+
+        # Evaluate each roster player
         for player in roster:
-            try:
-                char_data = await self._fetch_player(player)
-                eval_result = evaluate(char_data, benchmark)
-                self._upsert_snapshot(
-                    snapshot_repo, player, week_of, char_data, eval_result, benchmark,
+            key = (player.name.lower(), player.realm.lower())
+            matched = char_lookup.get(key)
+
+            if matched is None:
+                logger.warning(
+                    "Player %s-%s not found in wowaudit response",
+                    player.name, player.realm,
                 )
-                result.players_collected += 1
-            except (KeyboardInterrupt, SystemExit):
-                raise
-            except Exception as exc:
-                logger.error("Failed to collect %s: %s", player.name, exc)
-                result.api_errors += 1
-                result.errors.append(f"{player.name}: {exc}")
-                # Flag the player as NO_DATA
-                self._upsert_flag_snapshot(
-                    snapshot_repo, player, week_of, str(exc),
-                )
+
+            eval_result = evaluate(matched, benchmark)
+            self._upsert_snapshot(
+                snapshot_repo, player, week_of, matched, eval_result, benchmark,
+            )
+            result.players_collected += 1
             self._session.commit()
 
-            # Courtesy delay between API calls
-            if delay > 0:
-                await asyncio.sleep(delay)
-
         # Finalize collection run
-        if result.api_errors > 0 and result.players_collected == 0:
-            result.status = "failed"
-        elif result.api_errors > 0:
-            result.status = "partial"
-
         run_repo.update(
             run_id,
             status=result.status,
@@ -172,27 +191,22 @@ class WeeklyCollector:
         )
         return result
 
-    async def _fetch_player(self, player: Player) -> CharacterData | None:
-        """Fetch a single player's data from Raider.io."""
-        try:
-            return await self._client.fetch_character(
-                player.region, player.realm, player.name,
-            )
-        except CharacterNotFoundError:
-            logger.warning("Character not found: %s-%s", player.name, player.realm)
-            return None
-
     def _upsert_snapshot(
         self,
         repo: SnapshotRepo,
         player: Player,
         week_of: date,
-        char_data: CharacterData | None,
+        char_data: WowauditCharacter | None,
         eval_result: EvaluationResult,
         benchmark: WeeklyBenchmark,
     ) -> None:
         runs_at_level = (
             char_data.count_runs_at_level(benchmark.min_key_level) if char_data else 0
+        )
+        # Prefer real vault data from wowaudit, fall back to derived
+        vault_slots = (
+            char_data.vault_dungeon_slots() if char_data
+            else derive_vault_slots(runs_at_level)
         )
         snapshot = WeeklySnapshot(
             player_id=player.player_id,
@@ -200,12 +214,12 @@ class WeeklyCollector:
             mplus_runs_total=char_data.mplus_runs_total if char_data else 0,
             mplus_runs_at_level=runs_at_level,
             highest_key_level=char_data.highest_key_level if char_data else None,
-            item_level=char_data.item_level if char_data else None,
-            vault_slots_earned=derive_vault_slots(runs_at_level),
-            raiderio_score=char_data.raiderio_score if char_data else None,
+            item_level=None,
+            vault_slots_earned=vault_slots,
+            raiderio_score=None,
             status=eval_result.status,
             reasons=eval_result.reasons,
-            data_source="raiderio",
+            data_source="wowaudit",
             raw_api_response=char_data.raw_json if char_data else None,
         )
         repo.upsert(snapshot)
@@ -222,7 +236,7 @@ class WeeklyCollector:
             week_of=week_of,
             status=SnapshotStatus.FLAG,
             reasons=[FlagReason.NO_DATA],
-            data_source="raiderio",
+            data_source="wowaudit",
             raw_api_response=json.dumps({"error": error_msg}),
         )
         repo.upsert(snapshot)

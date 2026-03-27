@@ -14,7 +14,7 @@ import logging
 import sys
 from datetime import date, timedelta
 
-from raid_ledger.api.raiderio import RaiderioClient
+from raid_ledger.api.wowaudit import WowauditClient
 from raid_ledger.config import load_config
 from raid_ledger.db.connection import get_engine, get_session_factory, init_db
 from raid_ledger.engine.collector import NoBenchmarkError, WeeklyCollector
@@ -41,8 +41,8 @@ async def _run(week_of: date) -> None:
     session_factory = get_session_factory(engine)
     session = session_factory()
 
-    client = RaiderioClient(
-        raiderio_config=config.raiderio,
+    client = WowauditClient(
+        wowaudit_config=config.wowaudit,
         collection_config=config.collection,
     )
 

@@ -21,5 +21,6 @@ chronic_fail_threshold = 3
 chronic_lookback_weeks = 5
 streak_warning_threshold = 2
 
-[raiderio]
-base_url = "https://raider.io/api/v1"
+[wowaudit]
+base_url = "https://wowaudit.com"
+# api_key loaded from WOWAUDIT_API_KEY env var — never store in TOML

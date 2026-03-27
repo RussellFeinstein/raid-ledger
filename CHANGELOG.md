@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] — 2026-03-27
+
+### Changed
+
+- **Replaced Raider.io with wowaudit API as the data source.** Single batch API call fetches all characters' weekly M+ data instead of per-player requests. Requires `WOWAUDIT_API_KEY` env var.
+- Vault slots now come from real wowaudit vault data instead of derived estimates
+- Collector uses name+realm matching (case-insensitive) to pair wowaudit data with roster players
+- Removed Score column from Weekly Overview (raiderio_score no longer populated)
+- Removed M+ Score Trend chart from Player Timeline
+
+### Added
+
+- `raid_ledger/api/wowaudit.py` — new wowaudit HTTP client (WowauditClient, WowauditCharacter, WowauditRosterMember)
+- `docs/wowaudit-api.md` — reverse-engineered API reference for wowaudit endpoints
+- `WowauditConfig` in config with `base_url` and `api_key` fields
+
+### Removed
+
+- `raid_ledger/api/raiderio.py` — Raider.io client (fully replaced)
+- `RaiderioConfig` from config
+- Item level and Raider.io score tracking (columns remain nullable in schema for historical data)
+
 ## [0.6.1] — 2026-03-23
 
 ### Fixed

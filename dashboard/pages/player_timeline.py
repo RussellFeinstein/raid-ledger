@@ -93,22 +93,6 @@ for col, week_data in zip(cols, heatmap_data):
     col.markdown(label)
 
 # ---------------------------------------------------------------------------
-# M+ score trend
-# ---------------------------------------------------------------------------
-
-scores = [
-    {"Week": w["week_of"].strftime("%m/%d"), "Score": w["raiderio_score"]}
-    for w in heatmap_data
-    if w["raiderio_score"] is not None
-]
-if scores:
-    st.markdown("### M+ Score Trend")
-    st.line_chart(
-        data={s["Week"]: s["Score"] for s in scores},
-        use_container_width=True,
-    )
-
-# ---------------------------------------------------------------------------
 # Per-week detail cards
 # ---------------------------------------------------------------------------
 

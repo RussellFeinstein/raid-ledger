@@ -53,7 +53,7 @@ if selected_week is None:
         "1. Open the **Settings** page and enter your guild name and realm\n"
         "2. Open **Officer Tools** and import your roster\n"
         "3. Set this week's benchmarks (M+ count, key level, ilvl)\n"
-        "4. Click **Collect This Week** to pull data from Raider.io"
+        "4. Click **Collect This Week** to pull data from wowaudit"
     )
     st.stop()
 
@@ -80,9 +80,7 @@ for s in filtered:
         "Role": s.role.capitalize(),
         "M+ Runs": s.mplus_runs_at_level,
         "Highest Key": s.highest_key_level or "-",
-        "iLvl": f"{s.item_level:.1f}" if s.item_level else "-",
         "Vault": s.vault_slots_earned,
-        "Score": f"{s.raiderio_score:.0f}" if s.raiderio_score else "-",
         "Reasons": ", ".join(reason_display(r) for r in s.reasons) if s.reasons else "",
     })
 
@@ -103,17 +101,9 @@ st.dataframe(
             "Highest Key",
             help="Highest keystone level completed this week",
         ),
-        "iLvl": st.column_config.TextColumn(
-            "iLvl",
-            help="Equipped item level snapshot",
-        ),
         "Vault": st.column_config.NumberColumn(
             "Vault",
-            help="Great Vault M+ slots earned (1/4/8 runs = 1/2/3 slots)",
-        ),
-        "Score": st.column_config.TextColumn(
-            "Score",
-            help="Raider.io M+ score for the current season",
+            help="Great Vault M+ slots earned (from wowaudit vault data)",
         ),
         "Reasons": st.column_config.TextColumn(
             "Reasons",

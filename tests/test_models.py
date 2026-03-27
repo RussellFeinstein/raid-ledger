@@ -158,7 +158,7 @@ class TestWeeklySnapshot:
         assert s.vault_slots_earned == 0
         assert s.highest_key_level is None
         assert s.item_level is None
-        assert s.data_source == "raiderio"
+        assert s.data_source == "wowaudit"
         assert s.override_by is None
 
 

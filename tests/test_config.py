@@ -16,7 +16,7 @@ class TestLoadConfig:
         assert config.benchmarks.default_min_key_level == 10
         assert config.analysis.chronic_fail_threshold == 3
         assert config.analysis.chronic_lookback_weeks == 5
-        assert config.raiderio.base_url == "https://raider.io/api/v1"
+        assert config.wowaudit.base_url == "https://wowaudit.com"
 
     def test_missing_config_uses_defaults(self, tmp_path):
         config = load_config(config_path=tmp_path / "nonexistent.toml")
@@ -31,6 +31,11 @@ class TestLoadConfig:
         monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@host/db")
         config = AppConfig()
         assert config.database_url == "postgresql://user:pass@host/db"
+
+    def test_api_key_from_env(self, monkeypatch):
+        monkeypatch.setenv("WOWAUDIT_API_KEY", "test-secret-key")
+        config = load_config()
+        assert config.wowaudit.api_key == "test-secret-key"
 
     def test_collect_statuses_from_toml(self):
         config = load_config()

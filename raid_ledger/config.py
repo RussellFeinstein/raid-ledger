@@ -45,10 +45,11 @@ class AnalysisConfig(BaseModel):
     streak_warning_threshold: int = 2
 
 
-class RaiderioConfig(BaseModel):
+class WowauditConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    base_url: str = "https://raider.io/api/v1"
+    base_url: str = "https://wowaudit.com"
+    api_key: str = ""
 
 
 class AppConfig(BaseSettings):
@@ -60,7 +61,8 @@ class AppConfig(BaseSettings):
     collection: CollectionConfig = CollectionConfig()
     benchmarks: BenchmarkConfig = BenchmarkConfig()
     analysis: AnalysisConfig = AnalysisConfig()
-    raiderio: RaiderioConfig = RaiderioConfig()
+    wowaudit: WowauditConfig = WowauditConfig()
+    wowaudit_api_key: str = ""
     database_url: str = "sqlite:///raid_ledger.db"
 
 
@@ -68,6 +70,9 @@ def load_config(config_path: Path | None = None) -> AppConfig:
     """Load configuration from TOML file, with environment variable overrides.
 
     Priority: env vars > TOML file > Pydantic defaults.
+
+    The ``WOWAUDIT_API_KEY`` env var is injected into the nested
+    ``wowaudit`` config automatically by pydantic-settings.
     """
     path = config_path or _DEFAULT_CONFIG_PATH
     toml_data: dict = {}
@@ -76,4 +81,12 @@ def load_config(config_path: Path | None = None) -> AppConfig:
         with open(path, "rb") as f:
             toml_data = tomllib.load(f)
 
-    return AppConfig(**toml_data)
+    config = AppConfig(**toml_data)
+
+    # Inject top-level api_key into nested wowaudit config if set
+    if config.wowaudit_api_key and not config.wowaudit.api_key:
+        wowaudit_data = config.wowaudit.model_dump()
+        wowaudit_data["api_key"] = config.wowaudit_api_key
+        config = config.model_copy(update={"wowaudit": WowauditConfig(**wowaudit_data)})
+
+    return config

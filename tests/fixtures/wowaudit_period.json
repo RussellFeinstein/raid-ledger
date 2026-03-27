@@ -1,0 +1,14 @@
+{
+  "current_period": 1055,
+  "current_season": {
+    "id": 1,
+    "name": "Season 1",
+    "start_date": "2026-03-10",
+    "end_date": "2026-10-01",
+    "kind": "live",
+    "expansion": "Midnight",
+    "keystone_season_id": 13,
+    "pvp_season_id": 38,
+    "first_period_id": 1053
+  }
+}

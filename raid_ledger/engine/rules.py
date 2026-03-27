@@ -6,10 +6,13 @@ All thresholds come from the weekly benchmark. Failing ANY active check = failed
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from raid_ledger.api.raiderio import CharacterData
 from raid_ledger.models.benchmark import WeeklyBenchmark
 from raid_ledger.models.snapshot import FailureReason, FlagReason, SnapshotStatus
+
+if TYPE_CHECKING:
+    from raid_ledger.api.wowaudit import WowauditCharacter
 
 
 @dataclass(frozen=True)
@@ -35,13 +38,13 @@ def derive_vault_slots(mplus_runs_at_level: int) -> int:
 
 
 def evaluate(
-    char_data: CharacterData | None,
+    char_data: WowauditCharacter | None,
     benchmark: WeeklyBenchmark,
 ) -> EvaluationResult:
     """Evaluate a player's weekly data against the benchmark.
 
     Args:
-        char_data: Parsed character data from Raider.io, or None if the API
+        char_data: Parsed character data from wowaudit, or None if the API
             returned nothing (NO_DATA flag).
         benchmark: The officer-configured requirements for this week.
 

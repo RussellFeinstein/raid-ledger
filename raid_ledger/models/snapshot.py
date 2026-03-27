@@ -59,6 +59,6 @@ class WeeklySnapshot(BaseModel):
     status: SnapshotStatus
     reasons: list[str] = []
     override_by: str | None = None
-    data_source: str = "raiderio"
+    data_source: str = "wowaudit"
     raw_api_response: str | None = None
     collected_at: datetime | None = None

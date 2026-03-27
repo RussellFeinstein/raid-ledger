@@ -1,21 +1,21 @@
-"""Raider.io API client layer."""
+"""Wowaudit API client layer."""
 
-from raid_ledger.api.raiderio import (
-    CharacterData,
-    CharacterNotFoundError,
-    GuildMember,
-    GuildNotFoundError,
+from raid_ledger.api.wowaudit import (
     ParseError,
-    RaiderioClient,
     RateLimitError,
+    WowauditApiError,
+    WowauditAuthError,
+    WowauditCharacter,
+    WowauditClient,
+    WowauditRosterMember,
 )
 
 __all__ = [
-    "CharacterData",
-    "CharacterNotFoundError",
-    "GuildMember",
-    "GuildNotFoundError",
     "ParseError",
     "RateLimitError",
-    "RaiderioClient",
+    "WowauditApiError",
+    "WowauditAuthError",
+    "WowauditCharacter",
+    "WowauditClient",
+    "WowauditRosterMember",
 ]

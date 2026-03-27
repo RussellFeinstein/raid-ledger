@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime
 
 import pytest
 
-from raid_ledger.api.raiderio import CharacterData
+from raid_ledger.api.wowaudit import WowauditCharacter
 from raid_ledger.engine.rules import derive_vault_slots, evaluate
 from raid_ledger.models.benchmark import WeeklyBenchmark
 from raid_ledger.models.snapshot import FailureReason, FlagReason, SnapshotStatus
@@ -30,22 +30,19 @@ def _benchmark(
 
 def _char(
     runs: list[dict] | None = None,
-    ilvl: float | None = 620.0,
-) -> CharacterData:
-    return CharacterData(
+    ilvl: float | None = None,
+) -> WowauditCharacter:
+    return WowauditCharacter(
+        wowaudit_id=1,
         name="Test",
         realm="tichondrius",
-        region="us",
-        class_name="Mage",
-        spec_name="Fire",
+        dungeons_done=runs or [],
         item_level=ilvl,
-        mplus_runs=runs or [],
-        raiderio_score=2400.0,
     )
 
 
 def _runs_at_level(level: int, count: int) -> list[dict]:
-    return [{"mythic_level": level} for _ in range(count)]
+    return [{"level": level, "dungeon": 401} for _ in range(count)]
 
 
 # ---------------------------------------------------------------------------
@@ -160,16 +157,16 @@ class TestEdgeCases:
     def test_mixed_key_levels(self):
         """Only runs at or above min_key_level count."""
         runs = [
-            {"mythic_level": 12},
-            {"mythic_level": 10},
-            {"mythic_level": 8},
-            {"mythic_level": 11},
-            {"mythic_level": 7},
-            {"mythic_level": 10},
-            {"mythic_level": 13},
-            {"mythic_level": 9},
-            {"mythic_level": 10},
-            {"mythic_level": 6},
+            {"level": 12, "dungeon": 401},
+            {"level": 10, "dungeon": 402},
+            {"level": 8, "dungeon": 403},
+            {"level": 11, "dungeon": 404},
+            {"level": 7, "dungeon": 405},
+            {"level": 10, "dungeon": 406},
+            {"level": 13, "dungeon": 407},
+            {"level": 9, "dungeon": 408},
+            {"level": 10, "dungeon": 401},
+            {"level": 6, "dungeon": 402},
         ]
         result = evaluate(_char(runs=runs), _benchmark(min_runs=8, min_key=10))
         # Keys at level 10+: 12, 10, 11, 10, 13, 10 = 6

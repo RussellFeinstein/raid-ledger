@@ -74,10 +74,10 @@ def sample_snapshot() -> WeeklySnapshot:
         mplus_runs_total=10,
         mplus_runs_at_level=8,
         highest_key_level=12,
-        item_level=619.5,
+        item_level=None,
         vault_slots_earned=3,
-        raiderio_score=2450.0,
+        raiderio_score=None,
         status=SnapshotStatus.PASS,
         reasons=[],
-        data_source="raiderio",
+        data_source="wowaudit",
     )

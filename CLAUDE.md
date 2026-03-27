@@ -3,7 +3,7 @@
 ## Overview
 
 Weekly M+ accountability system for WoW CE guilds.
-Raider.io API -> SQLAlchemy -> Streamlit dashboard.
+Wowaudit API -> SQLAlchemy -> Streamlit dashboard.
 
 ## Stack
 
@@ -23,12 +23,13 @@ pip install -e ".[dev,dashboard]"
 - `raid_ledger/models/` — Pydantic domain models (frozen)
 - `raid_ledger/db/schema.py` — SQLAlchemy ORM, 6 tables
 - `raid_ledger/db/repositories.py` — CRUD, returns Pydantic models (not ORM objects)
-- `raid_ledger/api/raiderio.py` — httpx client, 2 endpoints (character + guild)
+- `raid_ledger/api/wowaudit.py` — httpx client, batch M+ data + roster + period endpoints
 - `raid_ledger/engine/rules.py` — 3-state evaluation (pass/fail/flag), OR logic
-- `raid_ledger/engine/collector.py` — weekly orchestrator, upserts
+- `raid_ledger/engine/collector.py` — weekly orchestrator, single batch fetch, name+realm matching
 - `raid_ledger/engine/analyzer.py` — pattern detection queries
 - `dashboard/` — Streamlit app, separate from installable package
 - `raid_ledger/config.py` — Pydantic Settings, loads from config/default.toml + env vars
+- `docs/wowaudit-api.md` — Reverse-engineered wowaudit API reference
 
 ## Key Decisions
 
@@ -38,8 +39,10 @@ pip install -e ".[dev,dashboard]"
 - `raw_api_response` stored for re-evaluation — never included in SELECT for dashboard queries
 - ON DELETE RESTRICT on all FKs — players deactivated, never deleted
 - All user-facing settings in DB (settings table), not TOML files
-- Vault slots derived from M+ count only (MVP) — no separate vault check
+- Vault slots come from real wowaudit vault data (non-null dungeon options)
 - Repos return Pydantic models, not ORM objects
+- Wowaudit API key via WOWAUDIT_API_KEY env var — never in config files
+- Player matching: wowaudit characters matched to DB players by name+realm (case-insensitive)
 
 ## Tests
 

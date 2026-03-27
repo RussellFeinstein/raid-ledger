@@ -88,7 +88,7 @@ class WeeklySnapshotRow(Base):
     status: Mapped[str] = mapped_column(String(10), nullable=False)
     reasons: Mapped[str | None] = mapped_column(Text, nullable=True)
     override_by: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    data_source: Mapped[str] = mapped_column(String(20), default="raiderio")
+    data_source: Mapped[str] = mapped_column(String(20), default="wowaudit")
     raw_api_response: Mapped[str | None] = mapped_column(Text, nullable=True)
     collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 

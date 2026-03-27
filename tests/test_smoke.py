@@ -31,13 +31,13 @@ class TestRaidLedgerImports:
 
     def test_api(self):
         from raid_ledger.api import (  # noqa: F401
-            CharacterData,
-            CharacterNotFoundError,
-            GuildMember,
-            GuildNotFoundError,
             ParseError,
-            RaiderioClient,
             RateLimitError,
+            WowauditApiError,
+            WowauditAuthError,
+            WowauditCharacter,
+            WowauditClient,
+            WowauditRosterMember,
         )
 
     def test_engine(self):

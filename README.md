@@ -5,7 +5,7 @@ Track every raider every week. Flag who's behind, why, and whether it's a patter
 
 ## What It Does
 
-- Automatically pulls M+ data from Raider.io after weekly reset
+- Automatically pulls M+ data from wowaudit after weekly reset (single batch API call)
 - Evaluates each raider against configurable weekly requirements
 - Three-state verdicts: Pass / Fail / Flag (needs officer attention)
 - Tracks failure patterns over time (chronic underperformers, streaks)
@@ -16,7 +16,7 @@ Track every raider every week. Flag who's behind, why, and whether it's a patter
 | Layer | Choice |
 |-------|--------|
 | Language | Python 3.11+ |
-| API | Raider.io (free, no auth required) |
+| API | wowaudit (private team API, Bearer token auth) |
 | ORM | SQLAlchemy 2.0 |
 | DB (dev) | SQLite |
 | DB (prod) | Supabase PostgreSQL |
@@ -33,6 +33,19 @@ python -m venv .venv
 # source .venv/bin/activate  # macOS/Linux
 pip install -e ".[dev,dashboard]"
 ```
+
+### Environment Variables
+
+```bash
+# Required for data collection:
+export WOWAUDIT_API_KEY="your-api-key-here"
+
+# Optional (defaults to SQLite):
+export DATABASE_URL="postgresql://user:pass@host/db"
+```
+
+Generate your wowaudit API key at your team's settings page:
+`https://wowaudit.com/{region}/{realm}/{guild}/{team}/api`
 
 ### Run Tests
 
@@ -61,10 +74,10 @@ raid_ledger/
 │   ├── schema.py         # ORM tables (6 tables + indexes)
 │   └── repositories.py   # CRUD repos returning Pydantic models
 ├── api/
-│   └── raiderio.py      # Raider.io HTTP client (character + guild endpoints)
+│   └── wowaudit.py      # Wowaudit HTTP client (batch roster + M+ data)
 ├── engine/
 │   ├── rules.py          # 3-state evaluation (pass/fail/flag), OR logic
-│   ├── collector.py      # Weekly collection orchestrator
+│   ├── collector.py      # Weekly collection orchestrator (single batch fetch)
 │   └── analyzer.py       # Pattern detection (chronic failures, streaks)
 dashboard/
 ├── app.py                # Streamlit entrypoint, sidebar, page navigation
@@ -72,12 +85,14 @@ dashboard/
 ├── data_loader.py        # Cached query wrappers for dashboard pages
 ├── pages/
 │   ├── weekly_overview.py # Color-coded roster table, CSV export, onboarding
-│   └── player_timeline.py # Per-player heatmap, detail cards, score trend
+│   └── player_timeline.py # Per-player heatmap, detail cards
 └── components/
     ├── status_badge.py    # Icons + text + color (WCAG: never color alone)
     └── filters.py         # Shared sidebar filter logic
 scripts/
 └── collect_weekly.py     # Entry point for cron + manual collection
+docs/
+└── wowaudit-api.md      # Wowaudit API reference (reverse-engineered)
 ```
 
 ## Database
@@ -88,20 +103,18 @@ Six tables: `players`, `weekly_benchmarks`, `weekly_snapshots`, `officer_notes`,
 - PostgreSQL (Supabase) for production via `DATABASE_URL` env var
 - All foreign keys use `ON DELETE RESTRICT` — players are deactivated, never deleted
 
-## Raider.io API
+## Wowaudit API
 
-The client fetches data from two Raider.io endpoints (free, no auth required, 200 req/min):
+The client fetches data from the wowaudit team API (Bearer token auth). See `docs/wowaudit-api.md` for the full reference.
 
-**Character profile** — weekly M+ data for collection:
-- `mythic_plus_previous_weekly_highest_level_runs` — finalized runs from the completed week
-- `gear.item_level_equipped` — ilvl snapshot
-- `mythic_plus_scores_by_season` — M+ score
+**Batch historical data** (`/v1/historical_data`) — single call returns all characters' weekly data:
+- `dungeons_done` — keystones completed with key level (used for evaluation)
+- `vault_options` — real Great Vault slot data (raids, dungeons, world)
+- `regular_mythic_dungeons_done` — mythic-0 count (tracked, not evaluated)
 
-**Guild profile** — roster import:
-- Returns all guild members with name, realm, class, spec, role, and rank
-- Officers select active raiders from the full member list
+**Roster** (`/v1/characters`) — team roster with class, role, rank, tracking status.
 
-Collection runs Tuesday evening (3 hours after US reset) to ensure data is finalized. The client uses exponential backoff on 429 rate limits and retries on timeouts.
+**Period metadata** (`/v1/period`) — current period number and season info.
 
 ## Collection & Rules Engine
 
@@ -109,8 +122,10 @@ Collection runs Tuesday evening (3 hours after US reset) to ensure data is final
 
 1. Loads the active roster (core + trial players)
 2. Loads the benchmark for this week (copies the most recent one if none is set)
-3. For each player: fetches data from Raider.io, evaluates against the benchmark, upserts a snapshot
-4. Logs collection run metadata (status, counts, errors)
+3. Batch-fetches all characters from wowaudit (single API call)
+4. Matches wowaudit characters to roster by name+realm (case-insensitive)
+5. Evaluates each player against the benchmark, upserts a snapshot
+6. Logs collection run metadata (status, counts, errors)
 
 Collection is safe to re-run — `UNIQUE(player_id, week_of)` upserts mean the latest data wins.
 
@@ -122,7 +137,7 @@ OR-logic: failing ANY active check = failed week. All thresholds come from the w
 - **Fail**: `INSUFFICIENT_KEYS` (runs at level < minimum) and/or `LOW_ILVL` (ilvl < minimum, only checked when set)
 - **Flag**: `NO_DATA` (API returned nothing — needs officer review)
 
-Vault slots are derived from M+ count: 1/4/8 runs = 1/2/3 slots.
+Vault slots come from wowaudit's real vault data (non-null dungeon options = slots earned).
 
 ### Running Collection Manually
 
@@ -152,7 +167,7 @@ Default thresholds (configurable via Settings): chronic = 3 failures in 5 weeks,
 Run locally with `streamlit run dashboard/app.py`. Password gate via `st.secrets` (no secret = open access for local dev).
 
 - **Weekly Overview**: Color-coded roster table (flags first, then fails, then passes). CSV export. First-run onboarding card when no data exists.
-- **Player Timeline**: Per-player 12-week heatmap strip, M+ score trend line, per-week detail cards with reasons and officer notes.
+- **Player Timeline**: Per-player 12-week heatmap strip, per-week detail cards with reasons and officer notes.
 
 All status indicators use icons + text + color (never color alone) for WCAG 2.1 AA compliance.
 

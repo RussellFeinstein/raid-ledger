@@ -1,0 +1,72 @@
+{
+  "period": 1055,
+  "characters": [
+    {
+      "id": 100,
+      "name": "Testplayer",
+      "realm": "Tichondrius",
+      "data": {
+        "dungeons_done": [
+          {"level": 12, "dungeon": 401},
+          {"level": 11, "dungeon": 402},
+          {"level": 10, "dungeon": 403},
+          {"level": 13, "dungeon": 404},
+          {"level": 10, "dungeon": 405},
+          {"level": 11, "dungeon": 406},
+          {"level": 10, "dungeon": 407},
+          {"level": 14, "dungeon": 408},
+          {"level": 10, "dungeon": 401},
+          {"level": 9, "dungeon": 402}
+        ],
+        "world_quests_done": 30,
+        "regular_mythic_dungeons_done": 2,
+        "vault_options": {
+          "raids": {"option_1": 259, "option_2": 246, "option_3": null},
+          "dungeons": {"option_1": 256, "option_2": 256, "option_3": 256},
+          "world": {"option_1": 259, "option_2": 259, "option_3": 259}
+        }
+      }
+    },
+    {
+      "id": 101,
+      "name": "Tankyboy",
+      "realm": "Stormrage",
+      "data": {
+        "dungeons_done": [],
+        "world_quests_done": 10,
+        "regular_mythic_dungeons_done": 8,
+        "vault_options": {
+          "raids": {"option_1": null, "option_2": null, "option_3": null},
+          "dungeons": {"option_1": null, "option_2": null, "option_3": null},
+          "world": {"option_1": null, "option_2": null, "option_3": null}
+        }
+      }
+    },
+    {
+      "id": 102,
+      "name": "Healsworth",
+      "realm": "Area 52",
+      "data": {
+        "dungeons_done": [
+          {"level": 10, "dungeon": 401},
+          {"level": 10, "dungeon": 402},
+          {"level": 11, "dungeon": 403},
+          {"level": 10, "dungeon": 404}
+        ],
+        "world_quests_done": 45,
+        "regular_mythic_dungeons_done": 3,
+        "vault_options": {
+          "raids": {"option_1": 246, "option_2": 246, "option_3": 246},
+          "dungeons": {"option_1": 256, "option_2": null, "option_3": null},
+          "world": {"option_1": 259, "option_2": 259, "option_3": null}
+        }
+      }
+    },
+    {
+      "id": 103,
+      "name": "Meleeguy",
+      "realm": "Illidan",
+      "data": null
+    }
+  ]
+}
