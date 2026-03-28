@@ -72,7 +72,7 @@ tab_roster, tab_players, tab_bench, tab_collect, tab_notes = st.tabs(
 # ---------------------------------------------------------------------------
 
 with tab_roster:
-    st.markdown("### Import Roster from Wowaudit")
+    st.markdown("## Import Roster from Wowaudit")
 
     if not config.wowaudit.api_key:
         st.warning(
@@ -128,7 +128,7 @@ with tab_roster:
                     {k: v for k, v in r.items() if not k.startswith("_")}
                     for r in new_members
                 ]
-                st.dataframe(display_rows, use_container_width=True, hide_index=True)
+                st.dataframe(display_rows, width="stretch", hide_index=True)
 
                 if st.button("Import All New Characters", key="import_roster"):
                     if not _require_officer():
@@ -159,7 +159,7 @@ with tab_roster:
 # ---------------------------------------------------------------------------
 
 with tab_players:
-    st.markdown("### Manage Players")
+    st.markdown("## Manage Players")
 
     players = get_all_players(session)
     if not players:
@@ -178,7 +178,7 @@ with tab_players:
                 label_visibility="collapsed",
             )
             if new_status != p.status:
-                if col3.button("Save", key=f"save_{p.player_id}"):
+                if col3.button(f"Save {p.name}", key=f"save_{p.player_id}"):
                     if not _require_officer():
                         st.stop()
                     player_repo = PlayerRepo(session)
@@ -192,7 +192,7 @@ with tab_players:
 # ---------------------------------------------------------------------------
 
 with tab_bench:
-    st.markdown("### Weekly Benchmarks")
+    st.markdown("## Weekly Benchmarks")
 
     current = get_most_recent_benchmark(session)
     if current:
@@ -206,64 +206,71 @@ with tab_bench:
     else:
         st.info("No benchmarks set yet.")
 
-    st.markdown("#### Set New Benchmark")
+    st.markdown("### Set Weekly Benchmark")
+    st.caption("One benchmark per week. Setting a benchmark for an existing week will update it.")
 
-    with st.form("benchmark_form"):
-        week_of = st.date_input(
-            "Week of (Tuesday)",
-            value=most_recent_tuesday(),
+    week_of = st.date_input(
+        "Week of (Tuesday)",
+        value=most_recent_tuesday(),
+        key="bench_week",
+    )
+    min_runs = st.number_input(
+        "Minimum M+ runs",
+        min_value=0, max_value=20,
+        value=config.benchmarks.default_min_mplus_runs,
+        key="bench_runs",
+    )
+    min_key = st.number_input(
+        "Minimum key level",
+        min_value=0, max_value=30,
+        value=config.benchmarks.default_min_key_level,
+        key="bench_key",
+    )
+    use_ilvl = st.checkbox(
+        "Enforce item level requirement (fetches ilvl from Raider.io)",
+        key="bench_use_ilvl",
+    )
+    min_ilvl = None
+    if use_ilvl:
+        min_ilvl = st.number_input(
+            "Minimum item level",
+            min_value=0, max_value=700, value=250,
+            key="bench_ilvl",
         )
-        min_runs = st.number_input(
-            "Minimum M+ runs",
-            min_value=0, max_value=20,
-            value=config.benchmarks.default_min_mplus_runs,
-        )
-        min_key = st.number_input(
-            "Minimum key level",
-            min_value=0, max_value=30,
-            value=config.benchmarks.default_min_key_level,
-        )
-        use_ilvl = st.checkbox("Enforce item level requirement")
-        min_ilvl = None
-        if use_ilvl:
-            min_ilvl = st.number_input(
-                "Minimum item level",
-                min_value=0, max_value=700, value=600,
-            )
-        min_vault = st.number_input(
-            "Minimum vault slots",
-            min_value=0, max_value=3,
-            value=config.benchmarks.default_min_vault_slots,
-        )
+    min_vault = st.number_input(
+        "Minimum vault slots",
+        min_value=0, max_value=3,
+        value=config.benchmarks.default_min_vault_slots,
+        key="bench_vault",
+    )
 
-        submitted = st.form_submit_button("Set Benchmark")
-        if submitted:
-            if not _require_officer():
-                st.stop()
+    if st.button("Set Weekly Benchmark", key="bench_submit"):
+        if not _require_officer():
+            st.stop()
 
-            # Snap to Tuesday if needed
-            tuesday = most_recent_tuesday(week_of)
-            if tuesday != week_of:
-                st.warning(f"Adjusted date to Tuesday: {tuesday}")
+        # Snap to Tuesday if needed
+        tuesday = most_recent_tuesday(week_of)
+        if tuesday != week_of:
+            st.warning(f"Adjusted date to Tuesday: {tuesday}")
 
-            benchmark_repo = BenchmarkRepo(session)
-            benchmark_repo.create_or_update(WeeklyBenchmark(
-                week_of=tuesday,
-                min_mplus_runs=min_runs,
-                min_key_level=min_key,
-                min_ilvl=min_ilvl,
-                min_vault_slots=min_vault,
-                set_by=officer_name,
-                set_at=datetime.now(tz=UTC),
-            ))
-            session.commit()
-            st.success(f"Benchmark set for week of {tuesday}.")
-            st.rerun()
+        benchmark_repo = BenchmarkRepo(session)
+        benchmark_repo.create_or_update(WeeklyBenchmark(
+            week_of=tuesday,
+            min_mplus_runs=min_runs,
+            min_key_level=min_key,
+            min_ilvl=min_ilvl,
+            min_vault_slots=min_vault,
+            set_by=officer_name,
+            set_at=datetime.now(tz=UTC),
+        ))
+        session.commit()
+        st.success(f"Benchmark set for week of {tuesday}.")
+        st.rerun()
 
     # History
     all_benchmarks = get_all_benchmarks(session)
     if all_benchmarks:
-        st.markdown("#### Benchmark History")
+        st.markdown("### Benchmark History")
         history_rows = [
             {
                 "Week": b.week_of,
@@ -275,14 +282,14 @@ with tab_bench:
             }
             for b in all_benchmarks
         ]
-        st.dataframe(history_rows, use_container_width=True, hide_index=True)
+        st.dataframe(history_rows, width="stretch", hide_index=True)
 
 # ---------------------------------------------------------------------------
 # Tab 4: Collect Data
 # ---------------------------------------------------------------------------
 
 with tab_collect:
-    st.markdown("### Collect Weekly Data")
+    st.markdown("## Collect Weekly Data")
 
     if not config.wowaudit.api_key:
         st.warning("No wowaudit API key configured. Set `WOWAUDIT_API_KEY` env var.")
@@ -371,7 +378,7 @@ with tab_collect:
     # Collection run history
     runs = get_collection_runs(session, tuesday)
     if runs:
-        st.markdown("#### Collection History")
+        st.markdown("### Collection History")
         run_rows = [
             {
                 "Status": r["status"],
@@ -382,14 +389,14 @@ with tab_collect:
             }
             for r in runs
         ]
-        st.dataframe(run_rows, use_container_width=True, hide_index=True)
+        st.dataframe(run_rows, width="stretch", hide_index=True)
 
 # ---------------------------------------------------------------------------
 # Tab 5: Officer Notes
 # ---------------------------------------------------------------------------
 
 with tab_notes:
-    st.markdown("### Add Officer Note")
+    st.markdown("## Add Officer Note")
 
     players = get_all_players(session)
     if not players:
@@ -437,7 +444,7 @@ with tab_notes:
     # Show existing notes
     existing_notes = get_player_notes(session, selected_player.player_id)
     if existing_notes:
-        st.markdown("#### Existing Notes")
+        st.markdown("### Existing Notes")
         for note in existing_notes:
             week_label = note["week_of"].strftime("%b %d") if note["week_of"] else "General"
             st.markdown(

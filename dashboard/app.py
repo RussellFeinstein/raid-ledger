@@ -65,13 +65,24 @@ session = get_session()
 with st.sidebar:
     st.markdown("## Raid Ledger")
 
-    # Officer name (required for write actions in M6)
-    officer_name = st.text_input(
-        "Your Name",
-        key="officer_name",
-        help="Enter your name. Required for notes, overrides, and benchmark changes.",
-    )
-    st.caption("Required for notes, overrides, and benchmark changes.")
+    # Officer name — locked once set, with option to change
+    if st.session_state.get("officer_name_locked"):
+        name = st.session_state["officer_name"]
+        st.success(f"Signed in as **{name}**")
+        if st.button("Change name", key="change_officer"):
+            st.session_state["officer_name_locked"] = False
+            st.session_state["officer_name"] = ""
+            st.rerun()
+    else:
+        name_input = st.text_input(
+            "Officer Name (required for changes)",
+            key="officer_name_input",
+        )
+        if name_input.strip():
+            if st.button("Lock in", key="lock_officer"):
+                st.session_state["officer_name"] = name_input.strip()
+                st.session_state["officer_name_locked"] = True
+                st.rerun()
 
     st.divider()
 
@@ -92,21 +103,16 @@ with st.sidebar:
 
     # Status filter
     status_filter = st.multiselect(
-        "Player Status",
+        "Filter by Player Status",
         options=["core", "trial", "bench"],
         default=["core", "trial"],
-        help="Filter players by roster status.",
     )
-    st.caption("Filter players by roster status.")
 
-    # Role filter
     role_filter = st.multiselect(
-        "Role",
+        "Filter by Role",
         options=["tank", "healer", "dps"],
         default=["tank", "healer", "dps"],
-        help="Filter players by role.",
     )
-    st.caption("Filter players by role.")
 
     st.divider()
 

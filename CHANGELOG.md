@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] — 2026-03-27
+
+### Added
+
+- Raider.io ilvl enrichment: when benchmark enforces item level, collection fetches ilvl and M+ score from Raider.io as a second pass (one call per player, optional)
+- Re-enabled ilvl checkbox in benchmark editor with Raider.io enrichment
+
+### Fixed
+
+- Deprecated `use_container_width` replaced with `width="stretch"` for Streamlit 1.55+
+- Arrow serialization error: mixed int/str in "Highest Key" column
+- Officer name lock-in: clear visual feedback when name is set
+- Benchmark form: ilvl checkbox now works (moved out of st.form)
+- Benchmark UI: clarified that one benchmark per week (upsert behavior)
+
+### Changed
+
+- Accessibility pass (WCAG 2.1 AA): fixed heading hierarchy (h1/h2/h3), removed tooltip-only info, added player name to Save buttons, descriptive filter labels, removed redundant captions
+
 ## [0.8.0] — 2026-03-27
 
 **Milestone M7: Officer Tools**

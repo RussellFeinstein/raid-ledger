@@ -1,4 +1,4 @@
-"""Wowaudit API client layer."""
+"""API client layer — wowaudit (primary) + Raider.io (ilvl enrichment)."""
 
 from raid_ledger.api.wowaudit import (
     ParseError,

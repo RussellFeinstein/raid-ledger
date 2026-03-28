@@ -79,14 +79,14 @@ for s in filtered:
         "Class": s.class_name,
         "Role": s.role.capitalize(),
         "M+ Runs": s.mplus_runs_at_level,
-        "Highest Key": s.highest_key_level or "-",
+        "Highest Key": str(s.highest_key_level) if s.highest_key_level else "-",
         "Vault": s.vault_slots_earned,
         "Reasons": ", ".join(reason_display(r) for r in s.reasons) if s.reasons else "",
     })
 
 st.dataframe(
     table_rows,
-    use_container_width=True,
+    width="stretch",
     hide_index=True,
     column_config={
         "Status": st.column_config.TextColumn("Status", help="Pass/Fail/Flag verdict"),
